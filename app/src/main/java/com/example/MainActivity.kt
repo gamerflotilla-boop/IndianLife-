@@ -265,6 +265,10 @@ fun AuthScreen(viewModel: ChatVerseViewModel) {
     var regPhone by remember { mutableStateOf("") }
     var regPassword by remember { mutableStateOf("") }
 
+    var isAdminPasswordVisible by remember { mutableStateOf(false) }
+    var isMemberPasswordVisible by remember { mutableStateOf(false) }
+    var isRegPasswordVisible by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -360,7 +364,16 @@ fun AuthScreen(viewModel: ChatVerseViewModel) {
                             label = { Text("Admin PASSWORD") },
                             placeholder = { Text("Today@2026") },
                             leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password icon") },
-                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { isAdminPasswordVisible = !isAdminPasswordVisible }) {
+                                    Icon(
+                                        imageVector = if (isAdminPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        contentDescription = "Toggle admin password visibility",
+                                        tint = TextMuted
+                                    )
+                                }
+                            },
+                            visualTransformation = if (isAdminPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -480,7 +493,16 @@ fun AuthScreen(viewModel: ChatVerseViewModel) {
                                         label = { Text("Sign-In Password") },
                                         placeholder = { Text("••••••••") },
                                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Security password") },
-                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                        trailingIcon = {
+                                            IconButton(onClick = { isMemberPasswordVisible = !isMemberPasswordVisible }) {
+                                                Icon(
+                                                    imageVector = if (isMemberPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                                    contentDescription = "Toggle member password visibility",
+                                                    tint = TextMuted
+                                                )
+                                            }
+                                        },
+                                        visualTransformation = if (isMemberPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -617,7 +639,16 @@ fun AuthScreen(viewModel: ChatVerseViewModel) {
                                         label = { Text("Account Password") },
                                         placeholder = { Text("e.g. Ramesh@2026") },
                                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Register secret password") },
-                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                        trailingIcon = {
+                                            IconButton(onClick = { isRegPasswordVisible = !isRegPasswordVisible }) {
+                                                Icon(
+                                                    imageVector = if (isRegPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                                    contentDescription = "Toggle register password visibility",
+                                                    tint = TextMuted
+                                                )
+                                            }
+                                        },
+                                        visualTransformation = if (isRegPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                         modifier = Modifier
                                             .fillMaxWidth()
