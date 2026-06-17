@@ -74,6 +74,10 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
     val generatedMediaPreview = MutableStateFlow<Bitmap?>(null)
     val isGeneratingMedia = MutableStateFlow(false)
 
+    // Redux Slice for Auth management
+    val authReduxStore = AuthReduxStore(application)
+    val authState: StateFlow<AuthState> = authReduxStore.state
+
     // Auth dynamic state
     val isLoggedIn = MutableStateFlow(false)
     val otpSent = MutableStateFlow(false)
@@ -90,6 +94,17 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         // Initialize Firebase helper check
         FirebaseHelper.initialize(application)
+
+        // Restore logged in user if stored in Redux Store and session is valid
+        viewModelScope.launch {
+            val restoredState = authReduxStore.state.value
+            if (restoredState.isLoggedIn && restoredState.userProfile != null) {
+                isLoggedIn.value = true
+                repository.saveProfile(restoredState.userProfile)
+                repository.saveProfile(restoredState.userProfile.copy(uid = "self"))
+                Log.d("ChatVerseViewModel", "Restored session for: ${restoredState.userProfile.username} from Redux Slice!")
+            }
+        }
         
         // Populate standard seed data if empty
         viewModelScope.launch {
@@ -126,6 +141,7 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun verifyOtp(code: String) {
         viewModelScope.launch {
+            authReduxStore.dispatch(AuthAction.LoginStart)
             if (code == "123456" || code == "1234" || code == "0000") {
                 loginError.value = null
                 val user = UserProfile(
@@ -139,14 +155,28 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
                 repository.saveProfile(user.copy(uid = "self"))
                 FirebaseHelper.persistUserProfileInFirestore(user)
                 isLoggedIn.value = true
+
+                // Sync with Redux Slice for OTP auth flow
+                val tokenStr = AuthReduxStore.buildSimulatedJwt(user.username)
+                val expiryTime = System.currentTimeMillis() + (3600 * 1000) // 1 Hour
+                authReduxStore.dispatch(AuthAction.LoginSuccess(
+                    loginId = user.username,
+                    token = tokenStr,
+                    sessionExpiry = expiryTime,
+                    authType = "OTP",
+                    userProfile = user
+                ))
             } else {
-                loginError.value = "Invalid verification OTP code. Try 123456"
+                val err = "Invalid verification OTP code. Try 123456"
+                loginError.value = err
+                authReduxStore.dispatch(AuthAction.LoginFailure(err))
             }
         }
     }
 
     fun loginWithGoogle() {
         viewModelScope.launch {
+            authReduxStore.dispatch(AuthAction.LoginStart)
             loginError.value = null
             // Perform simulated google single sign on
             val mockToken = "google_auth_token_" + UUID.randomUUID().toString()
@@ -164,16 +194,32 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
                 FirebaseHelper.persistUserProfileInFirestore(profile)
                 isLoggedIn.value = true
                 Log.d(TAG, "Successfully logged in via Google Auth & Firestore")
+
+                // Sync with Redux Slice for Google SSO OAuth flow
+                val tokenStr = AuthReduxStore.buildSimulatedJwt(profile.username)
+                val expiryTime = System.currentTimeMillis() + (3600 * 1000) // 1 Hour
+                authReduxStore.dispatch(AuthAction.LoginSuccess(
+                    loginId = profile.username,
+                    token = tokenStr,
+                    sessionExpiry = expiryTime,
+                    authType = "GOOGLE_SSO",
+                    userProfile = profile
+                ))
             } else {
-                loginError.value = "Google Authentication failed"
+                val err = "Google Authentication failed"
+                loginError.value = err
+                authReduxStore.dispatch(AuthAction.LoginFailure(err))
             }
         }
     }
 
     fun loginWithCredentials(loginId: String, passwordEntered: String) {
         viewModelScope.launch {
+            authReduxStore.dispatch(AuthAction.LoginStart)
             if (loginId.isBlank() || passwordEntered.isBlank()) {
-                loginError.value = "Login ID and Password cannot be empty!"
+                val err = "Login ID and Password cannot be empty!"
+                loginError.value = err
+                authReduxStore.dispatch(AuthAction.LoginFailure(err))
                 return@launch
             }
             loginError.value = null
@@ -189,24 +235,44 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
                     repository.saveProfile(activeUser)
                     isLoggedIn.value = true
                     Log.d(TAG, "Successfully validated member login: ${matched.username}")
+
+                    // Sync with Redux Slice for credentials flow
+                    val tokenStr = AuthReduxStore.buildSimulatedJwt(matched.username)
+                    val expiryTime = System.currentTimeMillis() + (3600 * 1000) // 1 Hour
+                    authReduxStore.dispatch(AuthAction.LoginSuccess(
+                        loginId = matched.username,
+                        token = tokenStr,
+                        sessionExpiry = expiryTime,
+                        authType = "CREDENTIALS",
+                        userProfile = activeUser
+                    ))
                 } else {
-                    loginError.value = "Incorrect password! Please try again."
+                    val err = "Incorrect password! Please try again."
+                    loginError.value = err
+                    authReduxStore.dispatch(AuthAction.LoginFailure(err))
                 }
             } else {
-                loginError.value = "Profile not found matching '$loginId'. Please Sign Up instead!"
+                val err = "Profile not found matching '$loginId'. Please Sign Up instead!"
+                loginError.value = err
+                authReduxStore.dispatch(AuthAction.LoginFailure(err))
             }
         }
     }
 
     fun registerNewMember(displayName: String, username: String, email: String, phone: String, passStr: String) {
         viewModelScope.launch {
+            authReduxStore.dispatch(AuthAction.LoginStart)
             if (displayName.isBlank() || username.isBlank() || phone.isBlank() || passStr.isBlank()) {
-                loginError.value = "Display Name, Username, Phone, and Password are required!"
+                val err = "Display Name, Username, Phone, and Password are required!"
+                loginError.value = err
+                authReduxStore.dispatch(AuthAction.LoginFailure(err))
                 return@launch
             }
             val profiles = allProfiles.value
             if (profiles.any { it.username.equals(username, ignoreCase = true) }) {
-                loginError.value = "Username '@$username' is already taken."
+                val err = "Username '@$username' is already taken."
+                loginError.value = err
+                authReduxStore.dispatch(AuthAction.LoginFailure(err))
                 return@launch
             }
             
@@ -226,6 +292,17 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
             isLoggedIn.value = true
             loginError.value = null
             Log.d(TAG, "Successfully registered user: $username")
+
+            // Sync with Redux Slice for signup flow
+            val tokenStr = AuthReduxStore.buildSimulatedJwt(profile.username)
+            val expiryTime = System.currentTimeMillis() + (3600 * 1000) // 1 Hour
+            authReduxStore.dispatch(AuthAction.LoginSuccess(
+                loginId = profile.username,
+                token = tokenStr,
+                sessionExpiry = expiryTime,
+                authType = "CREDENTIALS",
+                userProfile = profile
+            ))
         }
     }
 
@@ -235,6 +312,8 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
             otpSent.value = false
             // Reset to guest
             repository.saveProfile(UserProfile())
+            // Redux dispatch logout
+            authReduxStore.dispatch(AuthAction.Logout)
         }
     }
 

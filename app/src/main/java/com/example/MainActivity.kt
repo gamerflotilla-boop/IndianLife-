@@ -2102,6 +2102,7 @@ fun AiUniverseTabScreen(viewModel: ChatVerseViewModel) {
 fun MetricsTabScreen(viewModel: ChatVerseViewModel) {
     val txs by viewModel.transactions.collectAsState()
     val logs by viewModel.aiLogs.collectAsState()
+    val authState by viewModel.authState.collectAsState()
 
     var premiumSum = txs.size * 10
     var apiRequestsSum = logs.size
@@ -2142,6 +2143,101 @@ fun MetricsTabScreen(viewModel: ChatVerseViewModel) {
                     Text("Total AI Requests", color = TextMuted, fontSize = 12.sp)
                     Text(apiRequestsSum.toString(), fontWeight = FontWeight.Bold, fontSize = 24.sp, color = Purple80)
                     Text("Active API calls records", color = TextMuted, fontSize = 10.sp)
+                }
+            }
+        }
+
+        // REDUX SECURE AUTH SLICE STATE MONITOR
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Redux State Store Slice", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextLight)
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MidnightSurface),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(
+                                    color = if (authState.isLoggedIn) Color(0xFF10B981) else Color(0xFFEF4444),
+                                    shape = CircleShape
+                                )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (authState.isLoggedIn) "Session Validated" else "No Session Active",
+                            color = if (authState.isLoggedIn) Color(0xFF10B981) else Color(0xFFEF4444),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                    Text(
+                        text = "auth_redux_slice",
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        color = TextMuted,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Selected ID:", color = TextMuted, fontSize = 12.sp)
+                    Text(authState.loginId ?: "Not Identified", color = TextLight, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("OAuth Type:", color = TextMuted, fontSize = 12.sp)
+                    Text(authState.authType ?: "None", color = SparkAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Token storage:", color = TextMuted, fontSize = 12.sp)
+                    Text(
+                        text = authState.token?.let { if (it.length > 22) it.take(22) + "..." else it } ?: "Unassigned",
+                        color = Pink80,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Expires at:", color = TextMuted, fontSize = 12.sp)
+                    val expiryStr = authState.sessionExpiry?.let {
+                        val remainingSec = (it - System.currentTimeMillis()) / 1000
+                        if (remainingSec > 0) "${remainingSec / 60}m ${remainingSec % 60}s remaining" else "Expired"
+                    } ?: "No active timer"
+                    Text(expiryStr, color = TextLight, fontSize = 12.sp)
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                Button(
+                    onClick = {
+                        viewModel.authReduxStore.dispatch(com.example.data.AuthAction.ValidateSession)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = ChatBubbleSelf),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = "Session validation check",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Dispatch ValidateSession", fontSize = 13.sp)
                 }
             }
         }
