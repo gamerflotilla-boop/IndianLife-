@@ -1,0 +1,6 @@
+{
+  "name": "ChatVerse AI",
+  "description": "A complete real-time messaging platform combined with an advanced AI assistant system featuring text-to-speech, image generation, and location grounding.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
