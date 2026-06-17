@@ -72,11 +72,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ChatVerseApp(viewModel: ChatVerseViewModel = viewModel()) {
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val isAdminLoggedIn by viewModel.isAdminLoggedIn.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     if (!isLoggedIn) {
         AuthScreen(viewModel = viewModel)
+    } else if (isAdminLoggedIn) {
+        AdminDashboardScreen(viewModel = viewModel)
     } else {
         var currentTab by remember { mutableStateOf(0) }
         val activeChatId by viewModel.selectedChatId.collectAsState()
@@ -242,6 +245,26 @@ fun AuthScreen(viewModel: ChatVerseViewModel) {
     val errState by viewModel.loginError.collectAsState()
     val context = LocalContext.current
 
+    // Admin login states
+    var isAdminMode by remember { mutableStateOf(false) }
+    var adminLoginId by remember { mutableStateOf("") }
+    var adminPassword by remember { mutableStateOf("") }
+
+    // Standard Member Login states
+    var selectedTab by remember { mutableStateOf(0) } // 0: Credentials, 1: Mobile OTP, 2: Google SSO
+    var isRegisterMode by remember { mutableStateOf(false) }
+
+    // LOGIN CREDENTIALS
+    var memberLoginId by remember { mutableStateOf("") }
+    var memberPassword by remember { mutableStateOf("") }
+
+    // REGISTRATION
+    var regDisplayName by remember { mutableStateOf("") }
+    var regUsername by remember { mutableStateOf("") }
+    var regEmail by remember { mutableStateOf("") }
+    var regPhone by remember { mutableStateOf("") }
+    var regPassword by remember { mutableStateOf("") }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -263,7 +286,7 @@ fun AuthScreen(viewModel: ChatVerseViewModel) {
             // App Branding
             Box(
                 modifier = Modifier
-                    .size(100.dp)
+                    .size(90.dp)
                     .background(Color(0xFF1E293B), CircleShape)
                     .padding(12.dp),
                 contentAlignment = Alignment.Center
@@ -272,117 +295,523 @@ fun AuthScreen(viewModel: ChatVerseViewModel) {
                     imageVector = Icons.Default.Forum,
                     contentDescription = "ChatVerse AI App Icon",
                     tint = ChatBubbleSelf,
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.size(54.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = "Welcome to ChatVerse AI",
                 fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
+                fontSize = 26.sp,
                 color = TextLight,
                 textAlign = TextAlign.Center
             )
 
             Text(
-                text = "WhatsApp + Telegram + Dynamic @AI Grounding",
-                fontSize = 14.sp,
+                text = "Secure & Unified Multimodal Communication",
+                fontSize = 13.sp,
                 color = TextMuted,
                 modifier = Modifier.padding(top = 4.dp),
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MidnightSurface)
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text(
-                        text = if (!otpSent) "Sign In via Mobile" else "Enter Verification OTP",
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextLight,
-                        fontSize = 18.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    if (!otpSent) {
-                        OutlinedTextField(
-                            value = mobileNum,
-                            onValueChange = { mobileNum = it },
-                            label = { Text("Mobile Number") },
-                            placeholder = { Text("+91 99999 88888") },
-                            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "Phone icon") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("mobile_input"),
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = TextLight,
-                                unfocusedTextColor = TextLight,
-                                focusedBorderColor = ChatBubbleSelf
-                            )
+                Column(modifier = Modifier.padding(20.dp)) {
+                    if (isAdminMode) {
+                        Text(
+                            text = "Database Admin Login",
+                            fontWeight = FontWeight.Bold,
+                            color = SparkAccent,
+                            fontSize = 18.sp
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Button(
-                            onClick = { viewModel.simulatePhoneAuth(mobileNum) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .testTag("request_otp_button"),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = ChatBubbleSelf)
-                        ) {
-                            Text("Request OTP", fontSize = 16.sp, color = TextLight, fontWeight = FontWeight.Bold)
-                        }
-                    } else {
                         OutlinedTextField(
-                            value = otpCode,
-                            onValueChange = { otpCode = it },
-                            label = { Text("6-Digit Verification Code") },
-                            placeholder = { Text("Type 123456") },
-                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Secure lock icon") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            value = adminLoginId,
+                            onValueChange = { adminLoginId = it },
+                            label = { Text("Admin LOGIN ID") },
+                            placeholder = { Text("e.g. ADMIN123") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = "User icon") },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag("otp_input"),
+                                .testTag("admin_id_input"),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = TextLight,
                                 unfocusedTextColor = TextLight,
-                                focusedBorderColor = ChatBubbleSelf
+                                focusedBorderColor = SparkAccent
                             )
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = adminPassword,
+                            onValueChange = { adminPassword = it },
+                            label = { Text("Admin PASSWORD") },
+                            placeholder = { Text("Today@2026") },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password icon") },
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("admin_password_input"),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TextLight,
+                                unfocusedTextColor = TextLight,
+                                focusedBorderColor = SparkAccent
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
 
                         Button(
-                            onClick = { viewModel.verifyOtp(otpCode) },
+                            onClick = {
+                                viewModel.adminLogin(adminLoginId, adminPassword)
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
-                                .testTag("verify_otp_button"),
+                                .testTag("admin_login_submit"),
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Pink80)
+                            colors = ButtonDefaults.buttonColors(containerColor = SparkAccent)
                         ) {
-                            Text("Verify & Continue", fontSize = 16.sp, color = TextLight, fontWeight = FontWeight.Bold)
+                            Text("Authenticate Securely", fontSize = 16.sp, color = MidnightBg, fontWeight = FontWeight.Bold)
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         TextButton(
-                            onClick = { viewModel.simulatePhoneAuth(mobileNum) },
+                            onClick = {
+                                isAdminMode = false
+                                viewModel.loginError.value = null
+                            },
                             modifier = Modifier.align(Alignment.CenterHorizontally)
                         ) {
-                            Text("Resend Verification Code", color = ChatBubbleSelf)
+                            Text("← Return to Member Login", color = ChatBubbleSelf)
+                        }
+                    } else {
+                        // Standard Member Login & Sign-Up Interface
+                        // Selection Tabs
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF0F172A), RoundedCornerShape(12.dp))
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            listOf("ID & Password", "Mobile OTP", "Google SSO").forEachIndexed { index, title ->
+                                val selected = selectedTab == index
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(
+                                            if (selected) ChatBubbleSelf else Color.Transparent,
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .clickable {
+                                            selectedTab = index
+                                            viewModel.loginError.value = null
+                                        }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = title,
+                                        color = if (selected) Color.White else TextMuted,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        when (selectedTab) {
+                            0 -> {
+                                // ID & Password Login or Register
+                                if (!isRegisterMode) {
+                                    Text(
+                                        text = "Sign In with Credentials",
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextLight,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = "Use seeded profiles (girish_coder | arjun_mehra | zara_khan) with their passwords respectively. Or register custom credentials below!",
+                                        color = TextMuted,
+                                        fontSize = 11.sp,
+                                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                                    )
+
+                                    OutlinedTextField(
+                                        value = memberLoginId,
+                                        onValueChange = { memberLoginId = it },
+                                        label = { Text("Username, Email or Mobile") },
+                                        placeholder = { Text("e.g. girish_coder") },
+                                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Active user identifier") },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("member_id_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = TextLight,
+                                            unfocusedTextColor = TextLight,
+                                            focusedBorderColor = ChatBubbleSelf
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    OutlinedTextField(
+                                        value = memberPassword,
+                                        onValueChange = { memberPassword = it },
+                                        label = { Text("Sign-In Password") },
+                                        placeholder = { Text("••••••••") },
+                                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Security password") },
+                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("member_password_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = TextLight,
+                                            unfocusedTextColor = TextLight,
+                                            focusedBorderColor = ChatBubbleSelf
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Button(
+                                        onClick = {
+                                            viewModel.loginWithCredentials(memberLoginId, memberPassword)
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp)
+                                            .testTag("member_login_submit"),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = ChatBubbleSelf)
+                                    ) {
+                                        Text("Sign In Securely", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    TextButton(
+                                        onClick = {
+                                            isRegisterMode = true
+                                            viewModel.loginError.value = null
+                                        },
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    ) {
+                                        Text("Don't have an account? Sign Up Now ✨", color = SparkAccent, fontWeight = FontWeight.SemiBold)
+                                    }
+                                } else {
+                                    // New User Registration Form
+                                    Text(
+                                        text = "Register Custom Chat Profile",
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = SparkAccent,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = "Configure custom credentials to instantly lock in premium database directories.",
+                                        color = TextMuted,
+                                        fontSize = 11.sp,
+                                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                                    )
+
+                                    OutlinedTextField(
+                                        value = regDisplayName,
+                                        onValueChange = { regDisplayName = it },
+                                        label = { Text("Display Name") },
+                                        placeholder = { Text("e.g. Ramesh Patel") },
+                                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Full display name icon") },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("reg_display_name_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = TextLight,
+                                            unfocusedTextColor = TextLight,
+                                            focusedBorderColor = SparkAccent
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    OutlinedTextField(
+                                        value = regUsername,
+                                        onValueChange = { regUsername = it },
+                                        label = { Text("Unique Username") },
+                                        placeholder = { Text("e.g. ramesh_patel") },
+                                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Username field icon") },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("reg_username_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = TextLight,
+                                            unfocusedTextColor = TextLight,
+                                            focusedBorderColor = SparkAccent
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    OutlinedTextField(
+                                        value = regEmail,
+                                        onValueChange = { regEmail = it },
+                                        label = { Text("Email Address") },
+                                        placeholder = { Text("e.g. ramesh@gmail.com") },
+                                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email address icon") },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("reg_email_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = TextLight,
+                                            unfocusedTextColor = TextLight,
+                                            focusedBorderColor = SparkAccent
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    OutlinedTextField(
+                                        value = regPhone,
+                                        onValueChange = { regPhone = it },
+                                        label = { Text("Mobile Number") },
+                                        placeholder = { Text("e.g. +91 99999 88888") },
+                                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "Mobile number icon") },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("reg_phone_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = TextLight,
+                                            unfocusedTextColor = TextLight,
+                                            focusedBorderColor = SparkAccent
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    OutlinedTextField(
+                                        value = regPassword,
+                                        onValueChange = { regPassword = it },
+                                        label = { Text("Account Password") },
+                                        placeholder = { Text("e.g. Ramesh@2026") },
+                                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Register secret password") },
+                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("reg_password_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = TextLight,
+                                            unfocusedTextColor = TextLight,
+                                            focusedBorderColor = SparkAccent
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Button(
+                                        onClick = {
+                                            viewModel.registerNewMember(
+                                                displayName = regDisplayName,
+                                                username = regUsername,
+                                                email = regEmail,
+                                                phone = regPhone,
+                                                passStr = regPassword
+                                            )
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp)
+                                            .testTag("reg_submit_button"),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = SparkAccent)
+                                    ) {
+                                        Text("Register & Connect", fontSize = 16.sp, color = MidnightBg, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    TextButton(
+                                        onClick = {
+                                            isRegisterMode = false
+                                            viewModel.loginError.value = null
+                                        },
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    ) {
+                                        Text("Already have an account? Sign In here", color = ChatBubbleSelf, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                            1 -> {
+                                // OTP Authentication
+                                Text(
+                                    text = if (!otpSent) "Sign In via Mobile No" else "Enter Verification OTP",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextLight,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    text = if (!otpSent) "Type your 10-digit mobile number to request a secure OTP verification." else "An OTP simulation SMS has been dispatched. Enter 123456 to bypass.",
+                                    color = TextMuted,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                                )
+
+                                if (!otpSent) {
+                                    OutlinedTextField(
+                                        value = mobileNum,
+                                        onValueChange = { mobileNum = it },
+                                        label = { Text("Mobile Number") },
+                                        placeholder = { Text("+91 99999 88888") },
+                                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "Phone icon") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("mobile_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = TextLight,
+                                            unfocusedTextColor = TextLight,
+                                            focusedBorderColor = ChatBubbleSelf
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Button(
+                                        onClick = { viewModel.simulatePhoneAuth(mobileNum) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp)
+                                            .testTag("request_otp_button"),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = ChatBubbleSelf)
+                                    ) {
+                                        Text("Request OTP", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    OutlinedTextField(
+                                        value = otpCode,
+                                        onValueChange = { otpCode = it },
+                                        label = { Text("6-Digit Verification Code") },
+                                        placeholder = { Text("Type 123456") },
+                                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Secure lock icon") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("otp_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = TextLight,
+                                            unfocusedTextColor = TextLight,
+                                            focusedBorderColor = ChatBubbleSelf
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Button(
+                                        onClick = { viewModel.verifyOtp(otpCode) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp)
+                                            .testTag("verify_otp_button"),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Pink80)
+                                    ) {
+                                        Text("Verify & Continue", fontSize = 16.sp, color = TextLight, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    TextButton(
+                                        onClick = { viewModel.simulatePhoneAuth(mobileNum) },
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    ) {
+                                        Text("Resend Verification Code", color = ChatBubbleSelf)
+                                    }
+                                }
+                            }
+                            2 -> {
+                                // Google Sign-In Tab
+                                Text(
+                                    text = "Secure Google Sign-In",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextLight,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    text = "Federated login using real-time secure Google Identity Provider. Experience secure OAuth simulation instantly.",
+                                    color = TextMuted,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                                )
+
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.2f))
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            imageVector = Icons.Default.AlternateEmail,
+                                            contentDescription = "Federated email logo",
+                                            tint = Pink80,
+                                            modifier = Modifier.size(48.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Federated Auth Simulation", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text("Bypasses SMS carrier costs.", color = TextMuted, fontSize = 11.sp)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                OutlinedButton(
+                                    onClick = { viewModel.loginWithGoogle() },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp)
+                                        .testTag("google_login_button"),
+                                    border = BorderStroke(1.dp, TextMuted.copy(alpha = 0.4f)),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextLight)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.AlternateEmail,
+                                            contentDescription = "Google authentication icon",
+                                            tint = Pink80
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text("Google Federated Sign-In", color = TextLight, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -391,46 +820,28 @@ fun AuthScreen(viewModel: ChatVerseViewModel) {
                         Text(
                             text = errState!!,
                             color = Color.Red,
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            if (!isAdminMode) {
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // Google login divider
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 12.dp)
-            ) {
-                HorizontalDivider(modifier = Modifier.weight(1f), color = TextMuted.copy(alpha = 0.3f))
-                Text("  OR CONTINUE WITH  ", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                HorizontalDivider(modifier = Modifier.weight(1f), color = TextMuted.copy(alpha = 0.3f))
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Gmail Sign In
-            OutlinedButton(
-                onClick = { viewModel.loginWithGoogle() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("google_login_button"),
-                border = BorderStroke(1.dp, TextMuted.copy(alpha = 0.4f)),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextLight)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.AlternateEmail,
-                        contentDescription = "Google authentication",
-                        tint = Pink80
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Secure Google Sign-In with Firebase", color = TextLight, fontWeight = FontWeight.SemiBold)
+                TextButton(
+                    onClick = {
+                        isAdminMode = true
+                        viewModel.loginError.value = null
+                    },
+                    modifier = Modifier.testTag("admin_toggle_btn")
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Security, contentDescription = "Admin access icon", tint = SparkAccent)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Database Administrator Access", color = SparkAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
                 }
             }
         }
@@ -521,11 +932,11 @@ fun ChatItem(chat: Chat, onClick: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 if (chat.id == "ai_companion_chat") {
-                    Icon(Icons.Default.Psychology, contentDescription = "AI companion", tint = TextLight, modifier = Modifier.size(30.dp))
+                    Icon(Icons.Default.Psychology, contentDescription = "AI companion", tint = Color.White, modifier = Modifier.size(30.dp))
                 } else {
                     Text(
                         text = chat.name.take(2).uppercase(),
-                        color = TextLight,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
                     )
@@ -864,7 +1275,7 @@ fun CallsTabScreen(viewModel: ChatVerseViewModel) {
                                     .background(ChatBubbleSelf, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(chat.name.take(1), fontWeight = FontWeight.Bold, color = TextLight)
+                                Text(chat.name.take(1), fontWeight = FontWeight.Bold, color = Color.White)
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
@@ -926,18 +1337,18 @@ fun VoiceVideoCallOverlay(callState: CallState, viewModel: ChatVerseViewModel) {
                     .background(ChatBubbleSelf, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(callState.callerName.take(1), fontSize = 48.sp, color = TextLight, fontWeight = FontWeight.Bold)
+                Text(callState.callerName.take(1), fontSize = 48.sp, color = Color.White, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(callState.callerName, fontWeight = FontWeight.Bold, color = TextLight, fontSize = 24.sp)
+            Text(callState.callerName, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 24.sp)
             
             val minutes = callState.durationSeconds / 60
             val seconds = callState.durationSeconds % 60
             Text(
                 text = String.format("%02d:%02d", minutes, seconds),
-                color = TextLight.copy(alpha = 0.8f),
+                color = Color.White.copy(alpha = 0.8f),
                 fontSize = 16.sp,
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -958,10 +1369,10 @@ fun VoiceVideoCallOverlay(callState: CallState, viewModel: ChatVerseViewModel) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.ScreenShare, contentDescription = "Screen sharing active", tint = SparkAccent, modifier = Modifier.size(36.dp))
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Screen Sharing Active (Premium Benefit)", color = TextLight, fontSize = 13.sp)
+                            Text("Screen Sharing Active (Premium Benefit)", color = Color.White, fontSize = 13.sp)
                         }
                     } else {
-                        Text("Active Front Camera Stream", color = TextLight.copy(alpha = 0.6f))
+                        Text("Active Front Camera Stream", color = Color.White.copy(alpha = 0.6f))
                     }
                 }
             }
@@ -982,7 +1393,7 @@ fun VoiceVideoCallOverlay(callState: CallState, viewModel: ChatVerseViewModel) {
                     Icon(
                         imageVector = if (callState.isMuted) Icons.Default.MicOff else Icons.Default.Mic,
                         contentDescription = "Mute mic button",
-                        tint = TextLight
+                        tint = Color.White
                     )
                 }
 
@@ -995,7 +1406,7 @@ fun VoiceVideoCallOverlay(callState: CallState, viewModel: ChatVerseViewModel) {
                     Icon(
                         imageVector = Icons.Default.CallEnd,
                         contentDescription = "Disconnect call",
-                        tint = TextLight
+                        tint = Color.White
                     )
                 }
 
@@ -1009,7 +1420,7 @@ fun VoiceVideoCallOverlay(callState: CallState, viewModel: ChatVerseViewModel) {
                         Icon(
                             imageVector = Icons.Default.ScreenShare,
                             contentDescription = "Screen share controller",
-                            tint = TextLight
+                            tint = Color.White
                         )
                     }
                 }
@@ -1133,6 +1544,9 @@ fun ChatConversationScreen(viewModel: ChatVerseViewModel) {
     val selfUser by viewModel.userProfile.collectAsState()
     val scope = rememberCoroutineScope()
 
+    var showAttachmentDialog by remember { mutableStateOf(false) }
+    var activeGenerationType by remember { mutableStateOf<String?>(null) } // "IMAGE" or "STICKER"
+
     if (activeChatId == null) return
 
     val currentChatObj = chatList.find { it.id == activeChatId }
@@ -1159,7 +1573,7 @@ fun ChatConversationScreen(viewModel: ChatVerseViewModel) {
                                 .background(ChatBubbleSelf, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(title.take(1), fontWeight = FontWeight.Bold, color = TextLight, fontSize = 14.sp)
+                            Text(title.take(1), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
@@ -1237,6 +1651,19 @@ fun ChatConversationScreen(viewModel: ChatVerseViewModel) {
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = { showAttachmentDialog = true },
+                    modifier = Modifier.testTag("attachment_trigger_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Open creators selector",
+                        tint = SparkAccent
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
                 OutlinedTextField(
                     value = inputMsg,
                     onValueChange = { inputMsg = it },
@@ -1274,6 +1701,28 @@ fun ChatConversationScreen(viewModel: ChatVerseViewModel) {
                 }
             }
         }
+    }
+
+    if (showAttachmentDialog) {
+        AttachmentChoiceDialog(
+            onSelectOption = { option ->
+                activeGenerationType = option
+                showAttachmentDialog = false
+            },
+            onDismiss = { showAttachmentDialog = false }
+        )
+    }
+
+    if (activeGenerationType != null) {
+        ChatAiMediaDialog(
+            viewModel = viewModel,
+            chatId = activeChatId!!,
+            isSticker = activeGenerationType == "STICKER",
+            onDismiss = {
+                activeGenerationType = null
+                viewModel.generatedMediaPreview.value = null
+            }
+        )
     }
 }
 
@@ -1352,16 +1801,35 @@ fun MessageBubble(
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
                         text = message.content,
-                        color = TextLight,
+                        color = if (isOwn) Color.White else TextLight,
                         fontSize = 15.sp
                     )
+
+                    if (message.attachmentUrl != null && (message.attachmentType == "IMAGE" || message.attachmentType == "STICKER")) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.2f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        ) {
+                            AsyncImage(
+                                model = message.attachmentUrl,
+                                contentDescription = "AI creation",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = if (message.attachmentType == "STICKER") ContentScale.Fit else ContentScale.Crop
+                            )
+                        }
+                    }
 
                     if (message.isGroundedWithMaps) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.MyLocation, contentDescription = "Maps icon", tint = SparkAccent, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.MyLocation, contentDescription = "Maps icon", tint = if (isOwn) Color.White else SparkAccent, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Grounded via Google Maps", color = SparkAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Grounded via Google Maps", color = if (isOwn) Color.White else SparkAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -1375,7 +1843,7 @@ fun MessageBubble(
                         Text(
                             text = sdf.format(Date(message.timestamp)),
                             fontSize = 10.sp,
-                            color = TextMuted
+                            color = if (isOwn) Color.White.copy(alpha = 0.7f) else TextMuted
                         )
                     }
                 }
@@ -1549,7 +2017,7 @@ fun AiUniverseTabScreen(viewModel: ChatVerseViewModel) {
                                     containerColor = if (adjustMode == mode) ChatBubbleSelf else MidnightBg
                                 )
                             ) {
-                                Text(mode, color = TextLight, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
+                                Text(mode, color = if (adjustMode == mode) Color.White else TextLight, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
                             }
                         }
                     }
@@ -1683,4 +2151,441 @@ fun MetricsTabScreen(viewModel: ChatVerseViewModel) {
             }
         }
     }
+}
+
+// -------------------------------------------------------------
+// SECURE DATABASE ADMIN PANEL & PREMIUM DIRECTORY
+// -------------------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AdminDashboardScreen(viewModel: ChatVerseViewModel) {
+    val allProfiles by viewModel.allProfiles.collectAsState()
+    var searchTxt by remember { mutableStateOf("") }
+    
+    // Provisioning fields state
+    var allotName by remember { mutableStateOf("") }
+    var allotUser by remember { mutableStateOf("") }
+    var allotEmail by remember { mutableStateOf("") }
+    var allotPhone by remember { mutableStateOf("") }
+    var allotPremium by remember { mutableStateOf(true) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Security, contentDescription = "Admin access badge", tint = SparkAccent)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("ChatVerse AI @ADMIN Portal", fontWeight = FontWeight.Bold, color = TextLight, fontSize = 18.sp)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.adminLogout() }) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Sign out Admin", tint = Color.Red)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MidnightBg)
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(MidnightBg)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // High Level Database Stats counter metrics
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MidnightSurface)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Total Users", color = TextMuted, fontSize = 12.sp)
+                        Text("${allProfiles.size}", color = SparkAccent, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                    }
+                }
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MidnightSurface)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Premium Active", color = TextMuted, fontSize = 12.sp)
+                        Text("${allProfiles.count { it.isPremium }}", color = Pink80, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                    }
+                }
+            }
+
+            // SECTION 1: ALLOT NEW PREMIUM ACCOUNT INSTANTLY FORM
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MidnightSurface),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 18.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Allot Premium Account Directory", fontWeight = FontWeight.Bold, color = SparkAccent, fontSize = 16.sp)
+                    Text("Instantly insert or provision premium status to custom users", color = TextMuted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp))
+
+                    OutlinedTextField(
+                        value = allotName,
+                        onValueChange = { allotName = it },
+                        label = { Text("Display Name") },
+                        placeholder = { Text("Ramesh Patel") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                    )
+
+                    OutlinedTextField(
+                        value = allotUser,
+                        onValueChange = { allotUser = it },
+                        label = { Text("Unique Username") },
+                        placeholder = { Text("ramesh_premium") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                    )
+
+                    OutlinedTextField(
+                        value = allotEmail,
+                        onValueChange = { allotEmail = it },
+                        label = { Text("Email Address") },
+                        placeholder = { Text("ramesh.patel@gmail.com") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                    )
+
+                    OutlinedTextField(
+                        value = allotPhone,
+                        onValueChange = { allotPhone = it },
+                        label = { Text("Mobile Phone") },
+                        placeholder = { Text("+91 99999 88888") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Grant Premium Tier Account Allotment", color = TextLight, fontSize = 14.sp)
+                        Switch(
+                            checked = allotPremium,
+                            onCheckedChange = { allotPremium = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = SparkAccent)
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            if (allotName.isNotBlank() && allotUser.isNotBlank() && allotPhone.isNotBlank()) {
+                                viewModel.allotPremiumToUser(allotName, allotUser, allotEmail, allotPhone, allotPremium)
+                                allotName = ""
+                                allotUser = ""
+                                allotEmail = ""
+                                allotPhone = ""
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = SparkAccent)
+                    ) {
+                        Text("Allot Premium Account", color = MidnightBg, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // SECTION 2: DIRECTLY MANAGE ALL PERSISTED USER LICENSES
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MidnightSurface),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Modify Registered Accounts", fontWeight = FontWeight.Bold, color = TextLight, fontSize = 16.sp)
+                    Text("Directly search and toggle premium capabilities", color = TextMuted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 12.dp))
+
+                    OutlinedTextField(
+                        value = searchTxt,
+                        onValueChange = { searchTxt = it },
+                        placeholder = { Text("Search database users...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search users icon") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                    )
+
+                    val filteredProfiles = allProfiles.filter {
+                        it.displayName.contains(searchTxt, true) ||
+                        it.username.contains(searchTxt, true) ||
+                        (it.mobileNumber?.contains(searchTxt) ?: false)
+                    }
+
+                    if (filteredProfiles.isEmpty()) {
+                        Text("No registered database profiles match search description", color = TextMuted, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
+                    } else {
+                        filteredProfiles.forEach { profile ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                                    .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                    .padding(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(profile.displayName, fontWeight = FontWeight.Bold, color = TextLight, fontSize = 15.sp)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Card(
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = if (profile.isPremium) Pink80.copy(alpha = 0.2f) else TextMuted.copy(alpha = 0.2f)
+                                                ),
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (profile.isPremium) "PRO" else "FREE",
+                                                    color = if (profile.isPremium) Pink80 else TextMuted,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                        Text("@${profile.username} | UID: ${profile.uid}", color = TextMuted, fontSize = 12.sp)
+                                        Text("📞 ${profile.mobileNumber ?: "N/A"} | Mail: ${profile.email ?: "N/A"}", color = TextMuted, fontSize = 11.sp)
+                                    }
+
+                                    Switch(
+                                        checked = profile.isPremium,
+                                        onCheckedChange = { isChecked ->
+                                            viewModel.updatePremiumStatus(profile.uid, isChecked)
+                                        },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = Pink80)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// CHAT ATTACHMENT / CO-CREATORS DIALOGS
+// -------------------------------------------------------------
+
+@Composable
+fun AttachmentChoiceDialog(
+    onSelectOption: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Dismiss", color = TextMuted) }
+        },
+        title = {
+            Text("AI Co-Creators Assistant", fontWeight = FontWeight.Bold, color = TextLight, fontSize = 18.sp)
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Select interactive premium generation model to insert directly:", color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
+                
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clickable { onSelectOption("IMAGE") },
+                    colors = CardDefaults.cardColors(containerColor = MidnightBg)
+                ) {
+                    Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Brush, contentDescription = "AI Image icon choice", tint = SparkAccent)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Generate AI Image 🎨", fontWeight = FontWeight.Bold, color = TextLight, fontSize = 14.sp)
+                            Text("Generate high-fidelity artwork of any description", color = TextMuted, fontSize = 11.sp)
+                        }
+                    }
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clickable { onSelectOption("STICKER") },
+                    colors = CardDefaults.cardColors(containerColor = MidnightBg)
+                ) {
+                    Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AutoFixHigh, contentDescription = "AI Sticker icon choice", tint = Pink80)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Generate AI Sticker ✨", fontWeight = FontWeight.Bold, color = TextLight, fontSize = 14.sp)
+                            Text("Provision beautiful stylized vectors with borders", color = TextMuted, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        },
+        containerColor = MidnightSurface,
+        shape = RoundedCornerShape(20.dp)
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatAiMediaDialog(
+    viewModel: ChatVerseViewModel,
+    chatId: String,
+    isSticker: Boolean,
+    onDismiss: () -> Unit
+) {
+    var prompt by remember { mutableStateOf("") }
+    val generatedMediaPreview by viewModel.generatedMediaPreview.collectAsState()
+    val isGeneratingMedia by viewModel.isGeneratingMedia.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            if (generatedMediaPreview != null) {
+                Button(
+                    onClick = {
+                        viewModel.sendGeneratedMediaToChat(chatId, isSticker)
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SparkAccent)
+                ) {
+                    Text("Send to Chat", color = MidnightBg, fontWeight = FontWeight.Bold)
+                }
+            } else {
+                Button(
+                    onClick = {
+                        if (prompt.isNotBlank()) {
+                            viewModel.generateMediaInChat(prompt, isSticker)
+                        }
+                    },
+                    enabled = !isGeneratingMedia && prompt.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = ChatBubbleSelf)
+                ) {
+                    if (isGeneratingMedia) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                    } else {
+                        Text("Generate")
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextMuted)
+            }
+        },
+        title = {
+            Text(
+                text = if (isSticker) "AI Sticker Generator ✨" else "AI Image Generator 🎨",
+                fontWeight = FontWeight.Bold,
+                color = TextLight,
+                fontSize = 18.sp
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (!userProfile.isPremium) {
+                    Text(
+                        "🔒 Premium Feature Required!\nThis generative model requires active Premium credentials. Please use the Admin panel or payment sheets to activate.",
+                        color = Pink80,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
+                Text(
+                    text = if (isSticker) "Describe the sticker you want to generate:" else "Describe the image you want to generate:",
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                OutlinedTextField(
+                    value = prompt,
+                    onValueChange = { prompt = it },
+                    placeholder = { Text(if (isSticker) "Cute astronaut pug wearing headphones vector..." else "Nebula cosmic landscape watercolor background...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isGeneratingMedia && userProfile.isPremium,
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                )
+
+                if (isGeneratingMedia) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = SparkAccent)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("AI model is thinking... Please wait...", color = SparkAccent, fontSize = 12.sp)
+                    }
+                }
+
+                if (generatedMediaPreview != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Generated Artwork Preview:", color = TextLight, fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black.copy(alpha = 0.3f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            bitmap = generatedMediaPreview!!.asImageBitmap(),
+                            contentDescription = "AI Artwork preview",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = if (isSticker) ContentScale.Fit else ContentScale.Crop
+                        )
+                    }
+                }
+            }
+        },
+        containerColor = MidnightSurface,
+        shape = RoundedCornerShape(20.dp)
+    )
 }

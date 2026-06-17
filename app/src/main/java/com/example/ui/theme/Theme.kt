@@ -11,45 +11,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme =
-  darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80,
+private val HighDensityColorScheme =
+  lightColorScheme(
+    primary = Color(0xFF6750A4),
+    secondary = Color(0xFFE8DEF8),
+    tertiary = Color(0xFFD0BCFF),
     background = MidnightBg,
     surface = MidnightSurface,
     onBackground = TextLight,
     onSurface = TextLight
   )
 
-private val LightColorScheme =
-  lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-    background = Color(0xFFF1F5F9), // Slate 100
-    surface = Color.White,
-    onBackground = Color(0xFF0F172A),
-    onSurface = Color(0xFF0F172A)
-  )
-
 @Composable
 fun MyApplicationTheme(
   darkTheme: Boolean = isSystemInDarkTheme(),
-  // Dynamic color is available on Android 12+
-  dynamicColor: Boolean = true,
+  dynamicColor: Boolean = false, // Disable default dynamic coloring to guarantee the custom theme identity
   content: @Composable () -> Unit,
 ) {
-  val colorScheme =
-    when {
-      dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-        val context = LocalContext.current
-        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-      }
-
-      darkTheme -> DarkColorScheme
-      else -> LightColorScheme
-    }
+  // Always active High Density color scheme
+  val colorScheme = HighDensityColorScheme
 
   MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }

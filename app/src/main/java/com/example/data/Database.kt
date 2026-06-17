@@ -12,6 +12,9 @@ interface UserProfileDao {
     @Query("SELECT * FROM user_profile WHERE uid = :uid LIMIT 1")
     suspend fun getProfile(uid: String = "self"): UserProfile?
 
+    @Query("SELECT * FROM user_profile ORDER BY displayName ASC")
+    fun getAllProfiles(): Flow<List<UserProfile>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveProfile(profile: UserProfile)
 
@@ -131,10 +134,12 @@ class ChatRepository(private val db: AppDatabase) {
     val statusUpdates: Flow<List<StatusUpdate>> = db.statusUpdateDao().getAllStatus()
     val transactions: Flow<List<PaymentTransaction>> = db.paymentDao().getAllTransactions()
     val aiLogs: Flow<List<AiRequestLog>> = db.aiLogDao().getAllLogs()
+    val allProfiles: Flow<List<UserProfile>> = db.userProfileDao().getAllProfiles()
 
     suspend fun getProfile(): UserProfile? = db.userProfileDao().getProfile()
     suspend fun saveProfile(profile: UserProfile) = db.userProfileDao().saveProfile(profile)
     suspend fun setPremium(uid: String = "self") = db.userProfileDao().setPremiumStatus(true, uid)
+    suspend fun updatePremiumStatus(isPremium: Boolean, uid: String) = db.userProfileDao().setPremiumStatus(isPremium, uid)
 
     fun observeMessages(chatId: String): Flow<List<Message>> = db.messageDao().observeMessages(chatId)
 

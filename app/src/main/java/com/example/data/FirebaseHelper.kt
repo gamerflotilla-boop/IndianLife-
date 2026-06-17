@@ -14,16 +14,29 @@ object FirebaseHelper {
     fun initialize(context: Context) {
         try {
             // Check if Firebase is available and has google-services config
-            FirebaseApp.initializeApp(context)
-            isFirebaseInitialized = true
-            Log.d(TAG, "Firebase initialized successfully.")
+            val app = FirebaseApp.initializeApp(context)
+            if (app != null) {
+                isFirebaseInitialized = true
+                Log.d(TAG, "Firebase initialized successfully.")
+            } else {
+                Log.w(TAG, "Firebase initialization returned null (missing options/google-services.json string keys). Falling back to simulation.")
+                isFirebaseInitialized = false
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Firebase initialization failed: ${e.message}. Falling back to simulation.", e)
             isFirebaseInitialized = false
         }
     }
 
-    fun isAvailable(): Boolean = isFirebaseInitialized
+    fun isAvailable(): Boolean {
+        if (!isFirebaseInitialized) return false
+        return try {
+            FirebaseApp.getInstance()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     // Simulated/Real Google Sign-In with Firebase Auth
     suspend fun signInWithGoogleCredential(idToken: String): String? {

@@ -65,6 +65,15 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
     val isGeneratingImage = MutableStateFlow(false)
     val ttsPlayingId = MutableStateFlow<String?>(null) // ID of message currently playing speech audio
     
+    // Admin login and management flows
+    val isAdminLoggedIn = MutableStateFlow(false)
+    val allProfiles: StateFlow<List<UserProfile>> = repository.allProfiles
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Chat-specific live image/sticker generation flows
+    val generatedMediaPreview = MutableStateFlow<Bitmap?>(null)
+    val isGeneratingMedia = MutableStateFlow(false)
+
     // Auth dynamic state
     val isLoggedIn = MutableStateFlow(false)
     val otpSent = MutableStateFlow(false)
@@ -127,6 +136,7 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
                     email = "member@chatverse.ai"
                 )
                 repository.saveProfile(user)
+                repository.saveProfile(user.copy(uid = "self"))
                 FirebaseHelper.persistUserProfileInFirestore(user)
                 isLoggedIn.value = true
             } else {
@@ -150,12 +160,72 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
                     isPremium = false
                 )
                 repository.saveProfile(profile)
+                repository.saveProfile(profile.copy(uid = "self"))
                 FirebaseHelper.persistUserProfileInFirestore(profile)
                 isLoggedIn.value = true
                 Log.d(TAG, "Successfully logged in via Google Auth & Firestore")
             } else {
                 loginError.value = "Google Authentication failed"
             }
+        }
+    }
+
+    fun loginWithCredentials(loginId: String, passwordEntered: String) {
+        viewModelScope.launch {
+            if (loginId.isBlank() || passwordEntered.isBlank()) {
+                loginError.value = "Login ID and Password cannot be empty!"
+                return@launch
+            }
+            loginError.value = null
+            val profiles = allProfiles.value
+            val matched = profiles.find {
+                it.username.equals(loginId, ignoreCase = true) ||
+                it.email.equals(loginId, ignoreCase = true) ||
+                it.mobileNumber.equals(loginId)
+            }
+            if (matched != null) {
+                if (matched.password == passwordEntered) {
+                    val activeUser = matched.copy(uid = "self")
+                    repository.saveProfile(activeUser)
+                    isLoggedIn.value = true
+                    Log.d(TAG, "Successfully validated member login: ${matched.username}")
+                } else {
+                    loginError.value = "Incorrect password! Please try again."
+                }
+            } else {
+                loginError.value = "Profile not found matching '$loginId'. Please Sign Up instead!"
+            }
+        }
+    }
+
+    fun registerNewMember(displayName: String, username: String, email: String, phone: String, passStr: String) {
+        viewModelScope.launch {
+            if (displayName.isBlank() || username.isBlank() || phone.isBlank() || passStr.isBlank()) {
+                loginError.value = "Display Name, Username, Phone, and Password are required!"
+                return@launch
+            }
+            val profiles = allProfiles.value
+            if (profiles.any { it.username.equals(username, ignoreCase = true) }) {
+                loginError.value = "Username '@$username' is already taken."
+                return@launch
+            }
+            
+            val newUid = "user_reg_" + UUID.randomUUID().toString().take(6)
+            val profile = UserProfile(
+                uid = newUid,
+                username = username,
+                displayName = displayName,
+                email = email,
+                mobileNumber = phone,
+                password = passStr,
+                isPremium = false
+            )
+            repository.saveProfile(profile)
+            repository.saveProfile(profile.copy(uid = "self"))
+            FirebaseHelper.persistUserProfileInFirestore(profile)
+            isLoggedIn.value = true
+            loginError.value = null
+            Log.d(TAG, "Successfully registered user: $username")
         }
     }
 
@@ -469,9 +539,36 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
             username = "girish_coder",
             displayName = "Girish Kumar",
             bio = "Working on ChatVerse AI messaging app! 🚀",
+            email = "girish@chatverse.ai",
+            mobileNumber = "+919876543210",
+            password = "girish_pass",
             isPremium = false
         )
         repository.saveProfile(self)
+
+        val arjunProf = UserProfile(
+            uid = "arjun_mehra",
+            username = "arjun_mehra",
+            displayName = "Arjun Mehra",
+            email = "arjun@chatverse.ai",
+            mobileNumber = "+919999988888",
+            password = "arjun_pass",
+            bio = "Loving the custom dynamic grounding!",
+            isPremium = false
+        )
+        repository.saveProfile(arjunProf)
+
+        val zaraProf = UserProfile(
+            uid = "zara_khan",
+            username = "zara_khan",
+            displayName = "Zara Khan",
+            email = "zara@chatverse.ai",
+            mobileNumber = "+917777766666",
+            password = "zara_pass",
+            bio = "Coil and speech features are outstanding ✨",
+            isPremium = true
+        )
+        repository.saveProfile(zaraProf)
 
         val seedChats = listOf(
             Chat(id = "arjun_chat", name = "Arjun Mehra", isGroup = false, lastMessage = "Let's catch up tonight! Check Mumbai maps cafes.", lastMessageTime = System.currentTimeMillis() - 3600000, unreadCount = 1),
@@ -501,6 +598,202 @@ class ChatVerseViewModel(application: Application) : AndroidViewModel(applicatio
         for (s in seedStatus) {
             repository.insertStatus(s)
         }
+    }
+
+    // ADMIN DASHBOARD ACTIONS
+    fun adminLogin(loginId: String, password: String): Boolean {
+        return if (loginId == "ADMIN123" && password == "Today@2026") {
+            isAdminLoggedIn.value = true
+            isLoggedIn.value = true // Bypass OTP login screen
+            loginError.value = null
+            true
+        } else {
+            loginError.value = "Incorrect Admin ID or Password."
+            false
+        }
+    }
+
+    fun adminLogout() {
+        isAdminLoggedIn.value = false
+        isLoggedIn.value = false
+        loginError.value = null
+    }
+
+    fun updatePremiumStatus(uid: String, isPremium: Boolean) {
+        viewModelScope.launch {
+            repository.updatePremiumStatus(isPremium, uid)
+            // If self status was upgraded, persist so Auth reflects immediately
+            if (uid == "self") {
+                val selfProfile = repository.getProfile()
+                if (selfProfile != null) {
+                    FirebaseHelper.persistUserProfileInFirestore(selfProfile)
+                }
+            }
+        }
+    }
+
+    fun allotPremiumToUser(displayName: String, username: String, email: String, mobileNumber: String, isPremium: Boolean) {
+        viewModelScope.launch {
+            val generatedUid = "user_" + UUID.randomUUID().toString().take(6)
+            val newProfile = UserProfile(
+                uid = generatedUid,
+                username = username,
+                displayName = displayName,
+                email = email,
+                mobileNumber = mobileNumber,
+                isPremium = isPremium
+            )
+            repository.saveProfile(newProfile)
+            FirebaseHelper.persistUserProfileInFirestore(newProfile)
+        }
+    }
+
+    // CHAT MEDIA GENERATION & LOCAL CACHING
+    fun generateMediaInChat(prompt: String, isSticker: Boolean) {
+        if (!userProfile.value.isPremium) {
+            showPaymentSheet.value = true
+            return
+        }
+        viewModelScope.launch {
+            isGeneratingMedia.value = true
+            generatedMediaPreview.value = null
+            
+            var bitmap = GeminiService.generateImage(prompt)
+            if (bitmap == null) {
+                // Procedural arts fallback for local and remote visual preview
+                delay(1200)
+                bitmap = generateProceduralFallbackImage(prompt, isSticker)
+            }
+            
+            generatedMediaPreview.value = bitmap
+            isGeneratingMedia.value = false
+
+            // Record AI cost metric
+            val log = AiRequestLog(
+                prompt = prompt,
+                responseType = if (isSticker) "STICKER" else "IMAGE",
+                tokenUsed = 1500,
+                costInRupees = 0.50
+            )
+            repository.recordAiLog(log)
+        }
+    }
+
+    fun sendGeneratedMediaToChat(chatId: String, isSticker: Boolean) {
+        val bitmap = generatedMediaPreview.value ?: return
+        viewModelScope.launch {
+            val self = userProfile.value
+            val prefix = if (isSticker) "ai_sticker" else "ai_image"
+            
+            val localPath = saveBitmapToLocalFile(bitmap, prefix)
+            if (localPath != null) {
+                val msgId = UUID.randomUUID().toString()
+                val message = Message(
+                    id = msgId,
+                    chatId = chatId,
+                    senderId = self.uid,
+                    senderName = self.displayName,
+                    content = if (isSticker) "[AI Sticker: Custom Creation]" else "[AI Generated Artwork]",
+                    timestamp = System.currentTimeMillis(),
+                    attachmentUrl = localPath,
+                    attachmentType = if (isSticker) "STICKER" else "IMAGE"
+                )
+                repository.sendMessage(message)
+                FirebaseHelper.persistMessageInFirestore(message)
+                
+                // Clear state
+                generatedMediaPreview.value = null
+                
+                // Simulated chat reply
+                if (chatId != "ai_companion_chat") {
+                    simulateFriendReply(chatId, "Thank you for sending this! Beautiful AI creation. 💯")
+                }
+            }
+        }
+    }
+
+    private fun saveBitmapToLocalFile(bitmap: Bitmap, prefix: String): String? {
+        return try {
+            val file = File(getApplication<Application>().cacheDir, "${prefix}_${System.currentTimeMillis()}.png")
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            file.absolutePath
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed locally caching generated Bitmap: ${e.message}", e)
+            null
+        }
+    }
+
+    private fun generateProceduralFallbackImage(prompt: String, isSticker: Boolean): Bitmap {
+        val width = 512
+        val height = 512
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+
+        if (!isSticker) {
+            // Elegant linear background gradient
+            val colors = intArrayOf(0xFF0F172A.toInt(), 0xFF1E1B4B.toInt(), 0xFF311042.toInt(), 0xFF4A044E.toInt())
+            val gradient = android.graphics.LinearGradient(
+                0f, 0f, width.toFloat(), height.toFloat(),
+                colors, null, android.graphics.Shader.TileMode.CLAMP
+            )
+            paint.shader = gradient
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+            paint.shader = null
+        } else {
+            // Sticker uses rounded shape frame with colorful neon border
+            paint.color = 0xFF1E293B.toInt()
+            paint.style = android.graphics.Paint.Style.FILL
+            canvas.drawRoundRect(20f, 20f, (width - 20).toFloat(), (height - 20).toFloat(), 64f, 64f, paint)
+
+            paint.color = 0xFFC084FC.toInt()
+            paint.style = android.graphics.Paint.Style.STROKE
+            paint.strokeWidth = 14f
+            canvas.drawRoundRect(27f, 27f, (width - 27).toFloat(), (height - 27).toFloat(), 57f, 57f, paint)
+            paint.style = android.graphics.Paint.Style.FILL
+        }
+
+        // Draw multiple glowing circles inside
+        paint.color = 0x33FF007F.toInt()
+        canvas.drawCircle((width / 2).toFloat(), (height / 2).toFloat(), 180f, paint)
+        paint.color = 0x2200FFFF.toInt()
+        canvas.drawCircle((width / 2).toFloat(), (height / 2).toFloat(), 130f, paint)
+
+        // Select emoji matching request
+        val emoji = when {
+            prompt.contains("dog", true) || prompt.contains("puppy", true) -> "🐶"
+            prompt.contains("cat", true) || prompt.contains("kitten", true) -> "🐱"
+            prompt.contains("coffee", true) || prompt.contains("mug", true) -> "☕"
+            prompt.contains("heart", true) || prompt.contains("love", true) -> "💖"
+            prompt.contains("star", true) || prompt.contains("galaxy", true) -> "⭐"
+            prompt.contains("fire", true) || prompt.contains("lit", true) || prompt.contains("burn", true) -> "🔥"
+            prompt.contains("music", true) || prompt.contains("song", true) -> "🎵"
+            prompt.contains("car", true) || prompt.contains("race", true) -> "🚗"
+            prompt.contains("cyber", true) || prompt.contains("tech", true) || prompt.contains("robot", true) -> "👾"
+            isSticker -> "⭐"
+            else -> "🎨"
+        }
+
+        paint.color = android.graphics.Color.WHITE
+        paint.textSize = 120f
+        paint.textAlign = android.graphics.Paint.Align.CENTER
+        canvas.drawText(emoji, (width / 2).toFloat(), (height / 2 + 10).toFloat(), paint)
+
+        // Text prompt styling
+        paint.textSize = 24f
+        paint.isFakeBoldText = true
+        val textSnippet = if (prompt.length > 25) prompt.take(23) + "..." else prompt
+        canvas.drawText("\"$textSnippet\"", (width / 2).toFloat(), (height / 2 + 110).toFloat(), paint)
+
+        // Signature branding
+        paint.textSize = 15f
+        paint.color = 0xFFF43F5E.toInt()
+        paint.isFakeBoldText = false
+        canvas.drawText(if (isSticker) "AI STICKER" else "AI IMAGE GENERATOR", (width / 2).toFloat(), (height / 2 + 150).toFloat(), paint)
+
+        return bitmap
     }
 
     override fun onCleared() {

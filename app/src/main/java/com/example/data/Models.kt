@@ -13,6 +13,7 @@ data class UserProfile(
     val bio: String = "Hey there! I am using ChatVerse AI.",
     val email: String = "guest@example.com",
     val mobileNumber: String = "+919876543210",
+    val password: String = "Member@123",
     val isPremium: Boolean = false,
     val lastSeenStr: String = "Online",
     val hideOnlineStatus: Boolean = false,
